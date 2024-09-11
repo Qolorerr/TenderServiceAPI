@@ -1,4 +1,4 @@
-FROM golang:1.21.1
+FROM golang:1.23.0
 
 COPY --chown=go/go . /home/go/src
 WORKDIR /home/go/src
