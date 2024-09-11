@@ -104,11 +104,6 @@ func CreateTender(tenderService *services.TenderService) http.HandlerFunc {
 			return
 		}
 
-		if !checkStatus(tender.Status) {
-			http.Error(w, `Status can be only "Created", "Published", "Closed"`, http.StatusBadRequest)
-			return
-		}
-
 		if !checkServiceType(tender.ServiceType) {
 			http.Error(w, `Service type can be only "Construction", "Delivery", "Manufacture"`, http.StatusBadRequest)
 			return

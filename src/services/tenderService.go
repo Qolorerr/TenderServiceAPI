@@ -51,9 +51,11 @@ func (s *TenderService) GetTenders(serviceTypes []string, limit, offset int) (*[
 	var tenders []models.Tender
 
 	subQuery := s.db.Table("tenders as t1").
-		Select("MAX(version)").
-		Where("t1.id = tenders.id")
-	query := s.db.Where("version = (?)", subQuery)
+		Select("MAX(t1.version)").
+		Where("t1.id = tenders.id").
+		Where("t1.status = ?", "Published")
+	query := s.db.Where("version = (?)", subQuery).
+		Where("status = ?", "Published")
 
 	if len(serviceTypes) > 0 {
 		query = query.Where("service_type IN ?", serviceTypes)
