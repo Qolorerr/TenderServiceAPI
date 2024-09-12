@@ -34,14 +34,17 @@ func initDB() {
 	if err != nil {
 		log.Fatalf("Failed to migrate table: %v", err)
 	}
-	// TODO: Migrate Bids
+	err = db.AutoMigrate(&models.Bid{})
+	if err != nil {
+		log.Fatalf("Failed to migrate table: %v", err)
+	}
 }
 
 func main() {
 	initDB()
 
-	tenderService := services.NewTenderService(db)
-	router := routes.RegisterRoutes(tenderService)
+	service := services.NewService(db)
+	router := routes.RegisterRoutes(service)
 
 	// Запуск HTTP сервера
 	log.Println("Starting server on :8080")

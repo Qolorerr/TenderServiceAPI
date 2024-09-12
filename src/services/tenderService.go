@@ -2,21 +2,11 @@ package services
 
 import (
 	"errors"
-	"zadanie_6105/src/models"
-
 	"github.com/google/uuid"
-	"gorm.io/gorm"
+	"zadanie_6105/src/models"
 )
 
-type TenderService struct {
-	db *gorm.DB
-}
-
-func NewTenderService(db *gorm.DB) *TenderService {
-	return &TenderService{db: db}
-}
-
-func (s *TenderService) CheckIfUserIsResponsible(creatorUsername string, organizationID string) (bool, error) {
+func (s *Service) CheckIfUserIsResponsible(creatorUsername string, organizationID string) (bool, error) {
 	var count int64
 
 	err := s.db.Table("organization_responsible").
@@ -37,7 +27,7 @@ func (s *TenderService) CheckIfUserIsResponsible(creatorUsername string, organiz
 	return false, errors.New("the user is not responsible for the organization")
 }
 
-func (s *TenderService) CheckIfUserIsResponsibleForTender(creatorUsername string, tenderID string) (bool, error) {
+func (s *Service) CheckIfUserIsResponsibleForTender(creatorUsername string, tenderID string) (bool, error) {
 	tender, err := s.getTenderLastVersion(tenderID)
 	if err != nil {
 		return false, err
@@ -47,7 +37,15 @@ func (s *TenderService) CheckIfUserIsResponsibleForTender(creatorUsername string
 	return s.CheckIfUserIsResponsible(creatorUsername, organizationID)
 }
 
-func (s *TenderService) GetTenders(serviceTypes []string, limit, offset int) (*[]models.Tender, error) {
+func (s *Service) CheckIfTenderPublished(tenderId string) (bool, error) {
+	tender, err := s.getTenderLastVersion(tenderId)
+	if err != nil {
+		return false, err
+	}
+	return tender.Status == "Published", nil
+}
+
+func (s *Service) GetTenders(serviceTypes []string, limit, offset int) (*[]models.Tender, error) {
 	var tenders []models.Tender
 
 	subQuery := s.db.Table("tenders as t1").
@@ -73,14 +71,14 @@ func (s *TenderService) GetTenders(serviceTypes []string, limit, offset int) (*[
 	return &tenders, err
 }
 
-func (s *TenderService) CreateTender(tender *models.Tender) error {
+func (s *Service) CreateTender(tender *models.Tender) error {
 	if err := s.db.Create(tender).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *TenderService) GetTendersByUser(username string, limit, offset int) (*[]models.Tender, error) {
+func (s *Service) GetTendersByUser(username string, limit, offset int) (*[]models.Tender, error) {
 	var tenders []models.Tender
 
 	subQuery := s.db.Table("tenders as t1").
@@ -103,7 +101,7 @@ func (s *TenderService) GetTendersByUser(username string, limit, offset int) (*[
 	return &tenders, err
 }
 
-func (s *TenderService) getTenderLastVersion(id string) (*models.Tender, error) {
+func (s *Service) getTenderLastVersion(id string) (*models.Tender, error) {
 	var tender models.Tender
 
 	tenderID, err := uuid.Parse(id)
@@ -118,7 +116,7 @@ func (s *TenderService) getTenderLastVersion(id string) (*models.Tender, error) 
 	return &tender, err
 }
 
-func (s *TenderService) GetTenderStatus(id string) (string, error) {
+func (s *Service) GetTenderStatus(id string) (string, error) {
 	tender, err := s.getTenderLastVersion(id)
 	if err != nil {
 		return "", err
@@ -126,7 +124,7 @@ func (s *TenderService) GetTenderStatus(id string) (string, error) {
 	return tender.Status, nil
 }
 
-func (s *TenderService) UpdateTenderStatus(id string, status string) (*models.Tender, error) {
+func (s *Service) UpdateTenderStatus(id string, status string) (*models.Tender, error) {
 	tender, err := s.getTenderLastVersion(id)
 	if err != nil {
 		return nil, err
@@ -138,7 +136,7 @@ func (s *TenderService) UpdateTenderStatus(id string, status string) (*models.Te
 	return tender, nil
 }
 
-func (s *TenderService) UpdateTender(id string, edit *models.TenderEdit) (*models.Tender, error) {
+func (s *Service) UpdateTender(id string, edit *models.TenderEdit) (*models.Tender, error) {
 	tender, err := s.getTenderLastVersion(id)
 	if err != nil {
 		return nil, err
@@ -170,7 +168,7 @@ func (s *TenderService) UpdateTender(id string, edit *models.TenderEdit) (*model
 	return &newTender, nil
 }
 
-func (s *TenderService) RollbackTender(id string, version int32) (*models.Tender, error) {
+func (s *Service) RollbackTender(id string, version int32) (*models.Tender, error) {
 	var tender models.Tender
 
 	err := s.db.Where("id = ? AND version = ?", id, version).First(&tender).Error

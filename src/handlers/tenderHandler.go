@@ -42,7 +42,7 @@ func checkParam(s string, list *[]string) bool {
 	return false
 }
 
-func checkStatus(s string) bool {
+func checkTenderStatus(s string) bool {
 	list := []string{"Created", "Published", "Closed"}
 	return checkParam(s, &list)
 }
@@ -52,7 +52,7 @@ func checkServiceType(s string) bool {
 	return checkParam(s, &list)
 }
 
-func GetTenders(tenderService *services.TenderService) http.HandlerFunc {
+func GetTenders(service *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		limitStr := r.URL.Query().Get("limit")
 		offsetStr := r.URL.Query().Get("offset")
@@ -82,7 +82,7 @@ func GetTenders(tenderService *services.TenderService) http.HandlerFunc {
 			serviceTypes = strings.Split(serviceTypeStr, ",")
 		}
 
-		tenders, err := tenderService.GetTenders(serviceTypes, limit, offset)
+		tenders, err := service.GetTenders(serviceTypes, limit, offset)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
@@ -95,7 +95,7 @@ func GetTenders(tenderService *services.TenderService) http.HandlerFunc {
 	}
 }
 
-func CreateTender(tenderService *services.TenderService) http.HandlerFunc {
+func CreateTender(service *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var tender models.Tender
 		err := json.NewDecoder(r.Body).Decode(&tender)
@@ -109,7 +109,7 @@ func CreateTender(tenderService *services.TenderService) http.HandlerFunc {
 			return
 		}
 
-		isResponsible, err := tenderService.CheckIfUserIsResponsible(tender.CreatorUsername, tender.OrganizationId)
+		isResponsible, err := service.CheckIfUserIsResponsible(tender.CreatorUsername, tender.OrganizationId)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
@@ -119,7 +119,7 @@ func CreateTender(tenderService *services.TenderService) http.HandlerFunc {
 			return
 		}
 
-		err = tenderService.CreateTender(&tender)
+		err = service.CreateTender(&tender)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -134,7 +134,7 @@ func CreateTender(tenderService *services.TenderService) http.HandlerFunc {
 	}
 }
 
-func GetTendersByUser(tenderService *services.TenderService) http.HandlerFunc {
+func GetTendersByUser(service *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		limitStr := r.URL.Query().Get("limit")
 		offsetStr := r.URL.Query().Get("offset")
@@ -163,7 +163,7 @@ func GetTendersByUser(tenderService *services.TenderService) http.HandlerFunc {
 			return
 		}
 
-		tenders, err := tenderService.GetTendersByUser(username, limit, offset)
+		tenders, err := service.GetTendersByUser(username, limit, offset)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
@@ -176,7 +176,7 @@ func GetTendersByUser(tenderService *services.TenderService) http.HandlerFunc {
 	}
 }
 
-func GetTenderStatus(tenderService *services.TenderService) http.HandlerFunc {
+func GetTenderStatus(service *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		tenderID := vars["tenderId"]
@@ -187,7 +187,7 @@ func GetTenderStatus(tenderService *services.TenderService) http.HandlerFunc {
 			return
 		}
 
-		isResponsible, err := tenderService.CheckIfUserIsResponsibleForTender(username, tenderID)
+		isResponsible, err := service.CheckIfUserIsResponsibleForTender(username, tenderID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
@@ -197,7 +197,7 @@ func GetTenderStatus(tenderService *services.TenderService) http.HandlerFunc {
 			return
 		}
 
-		status, err := tenderService.GetTenderStatus(tenderID)
+		status, err := service.GetTenderStatus(tenderID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -212,14 +212,14 @@ func GetTenderStatus(tenderService *services.TenderService) http.HandlerFunc {
 	}
 }
 
-func UpdateTenderStatus(tenderService *services.TenderService) http.HandlerFunc {
+func UpdateTenderStatus(service *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		tenderID := vars["tenderId"]
 		username := r.URL.Query().Get("username")
 		status := r.URL.Query().Get("status")
 
-		if !checkStatus(status) {
+		if !checkTenderStatus(status) {
 			http.Error(w, `Status can be only "Created", "Published", "Closed"`, http.StatusBadRequest)
 		}
 
@@ -228,7 +228,7 @@ func UpdateTenderStatus(tenderService *services.TenderService) http.HandlerFunc 
 			return
 		}
 
-		isResponsible, err := tenderService.CheckIfUserIsResponsibleForTender(username, tenderID)
+		isResponsible, err := service.CheckIfUserIsResponsibleForTender(username, tenderID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
@@ -238,7 +238,7 @@ func UpdateTenderStatus(tenderService *services.TenderService) http.HandlerFunc 
 			return
 		}
 
-		tender, err := tenderService.UpdateTenderStatus(tenderID, status)
+		tender, err := service.UpdateTenderStatus(tenderID, status)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -253,7 +253,7 @@ func UpdateTenderStatus(tenderService *services.TenderService) http.HandlerFunc 
 	}
 }
 
-func UpdateTender(tenderService *services.TenderService) http.HandlerFunc {
+func UpdateTender(service *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		vars := mux.Vars(r)
@@ -279,7 +279,7 @@ func UpdateTender(tenderService *services.TenderService) http.HandlerFunc {
 			return
 		}
 
-		isResponsible, err := tenderService.CheckIfUserIsResponsibleForTender(username, tenderID)
+		isResponsible, err := service.CheckIfUserIsResponsibleForTender(username, tenderID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
@@ -289,7 +289,7 @@ func UpdateTender(tenderService *services.TenderService) http.HandlerFunc {
 			return
 		}
 
-		tender, err := tenderService.UpdateTender(tenderID, &edit)
+		tender, err := service.UpdateTender(tenderID, &edit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -304,7 +304,7 @@ func UpdateTender(tenderService *services.TenderService) http.HandlerFunc {
 	}
 }
 
-func RollbackTender(tenderService *services.TenderService) http.HandlerFunc {
+func RollbackTender(service *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		vars := mux.Vars(r)
@@ -329,7 +329,7 @@ func RollbackTender(tenderService *services.TenderService) http.HandlerFunc {
 			return
 		}
 
-		isResponsible, err := tenderService.CheckIfUserIsResponsibleForTender(username, tenderID)
+		isResponsible, err := service.CheckIfUserIsResponsibleForTender(username, tenderID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
@@ -339,7 +339,7 @@ func RollbackTender(tenderService *services.TenderService) http.HandlerFunc {
 			return
 		}
 
-		tender, err := tenderService.RollbackTender(tenderID, version)
+		tender, err := service.RollbackTender(tenderID, version)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
