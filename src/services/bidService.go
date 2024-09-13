@@ -2,7 +2,9 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"zadanie_6105/src/models"
 )
 
@@ -59,6 +61,23 @@ func (s *Service) CheckEmployeeExistence(id string) (bool, error) {
 		return false, err
 	}
 	return employee != nil, nil
+}
+
+func (s *Service) CheckIfBidByUserExist(username string, tenderID string) (bool, error) {
+	var bid models.Bid
+
+	result := s.db.Joins("JOIN employees ON employees.id = bids.author_id").
+		Where("employees.username = ? AND bids.tender_id = ? AND bids.status = ?", username, tenderID, "Published").
+		First(&bid)
+
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, result.Error
+	}
+
+	return true, nil
 }
 
 func (s *Service) CreateBid(bid *models.Bid) error {
@@ -235,4 +254,45 @@ func (s *Service) RollbackBid(id string, version int32) (*models.Bid, error) {
 		return nil, err
 	}
 	return &newBid, nil
+}
+
+func (s *Service) CreateFeedback(feedback *models.BidFeedback) (*models.Bid, error) {
+	if err := s.db.Create(feedback).Error; err != nil {
+		return nil, err
+	}
+	return s.getBidLastVersion(feedback.BidId.String())
+}
+
+func (s *Service) GetFeedbacks(username string, limit, offset int) (*[]models.BidFeedback, error) {
+	var employee models.Employee
+
+	if err := s.db.Where("username = ?", username).First(&employee).Error; err != nil {
+		return nil, fmt.Errorf("employee not found: %w", err)
+	}
+
+	var bids []models.Bid
+	if err := s.db.Where("author_id = ?", employee.ID).Find(&bids).Error; err != nil {
+		return nil, fmt.Errorf("bids not found: %w", err)
+	}
+
+	var bidIDs []uuid.UUID
+	for _, bid := range bids {
+		bidIDs = append(bidIDs, bid.ID)
+	}
+
+	query := s.db.Where("bid_id IN (?)", bidIDs)
+
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if offset > 0 {
+		query = query.Offset(offset)
+	}
+
+	var feedbacks []models.BidFeedback
+	if err := query.Find(&feedbacks).Error; err != nil {
+		return nil, fmt.Errorf("feedbacks not found: %w", err)
+	}
+
+	return &feedbacks, nil
 }

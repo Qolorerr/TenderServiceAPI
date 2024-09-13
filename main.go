@@ -38,6 +38,10 @@ func initDB() {
 	if err != nil {
 		log.Fatalf("Failed to migrate table: %v", err)
 	}
+	err = db.AutoMigrate(&models.BidFeedback{})
+	if err != nil {
+		log.Fatalf("Failed to migrate table: %v", err)
+	}
 }
 
 func main() {

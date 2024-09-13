@@ -27,6 +27,8 @@ func RegisterRoutes(service *services.Service) *mux.Router {
 	r.HandleFunc("/api/bids/{bidId}/edit", handlers.UpdateBid(service)).Methods("PATCH")
 	r.HandleFunc("/api/bids/{bidId}/submit_decision", handlers.SubmitBid(service)).Methods("PUT")
 	r.HandleFunc("/api/bids/{bidId}/rollback/{version}", handlers.RollbackBid(service)).Methods("PUT")
+	r.HandleFunc("/api/bids/{bidId}/feedback", handlers.CreateFeedback(service)).Methods("PUT")
+	r.HandleFunc("/api/bids/{tenderId}/reviews", handlers.GetFeedbacks(service)).Methods("GET")
 
 	return r
 }

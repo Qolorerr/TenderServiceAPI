@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"net/http"
 	"strconv"
@@ -29,6 +30,23 @@ func formatBidsToExport(bids *[]models.Bid) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(*bids))
 	for i, bid := range *bids {
 		result[i] = formatBidToExport(&bid)
+	}
+	return result
+}
+
+func formatFeedbackToExport(feedback *models.BidFeedback) map[string]interface{} {
+	result := map[string]interface{}{
+		"id":          feedback.ID.String(),
+		"description": feedback.Description,
+		"createdAt":   feedback.CreatedAt.Format(time.RFC3339),
+	}
+	return result
+}
+
+func formatFeedbacksToExport(feedbacks *[]models.BidFeedback) []map[string]interface{} {
+	result := make([]map[string]interface{}, len(*feedbacks))
+	for i, feedback := range *feedbacks {
+		result[i] = formatFeedbackToExport(&feedback)
 	}
 	return result
 }
@@ -399,6 +417,118 @@ func RollbackBid(service *services.Service) http.HandlerFunc {
 		}
 
 		response := formatBidToExport(bid)
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		}
+	}
+}
+
+func CreateFeedback(service *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		bidIDStr := vars["bidId"]
+		username := r.URL.Query().Get("username")
+		description := r.URL.Query().Get("bidFeedback")
+
+		if username == "" {
+			http.Error(w, "Username required", http.StatusUnauthorized)
+			return
+		}
+
+		isResponsible, err := service.CheckIfUserIsResponsibleForTenderByBidID(username, bidIDStr)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		if !isResponsible {
+			http.Error(w, "This user is not responsible", http.StatusForbidden)
+			return
+		}
+
+		bidID, err := uuid.Parse(bidIDStr)
+		if err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+		feedback := models.BidFeedback{
+			Description: description,
+			BidId:       bidID,
+		}
+
+		bid, err := service.CreateFeedback(&feedback)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+
+		response := formatBidToExport(bid)
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		}
+	}
+}
+
+func GetFeedbacks(service *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		tenderID := vars["tenderId"]
+		limitStr := r.URL.Query().Get("limit")
+		offsetStr := r.URL.Query().Get("offset")
+		author := r.URL.Query().Get("authorUsername")
+		requester := r.URL.Query().Get("requesterUsername")
+		limit := 5
+		offset := 0
+
+		if limitStr != "" {
+			if l, err := strconv.Atoi(limitStr); err == nil {
+				limit = l
+			} else {
+				http.Error(w, "Invalid paginationLimit", http.StatusBadRequest)
+				return
+			}
+		}
+		if offsetStr != "" {
+			if o, err := strconv.Atoi(offsetStr); err == nil {
+				offset = o
+			} else {
+				http.Error(w, "Invalid paginationOffset", http.StatusBadRequest)
+				return
+			}
+		}
+
+		if requester == "" {
+			http.Error(w, "Username required", http.StatusUnauthorized)
+			return
+		}
+		isResponsible, err := service.CheckIfUserIsResponsibleForTender(requester, tenderID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		if !isResponsible {
+			http.Error(w, "This user is not responsible", http.StatusForbidden)
+			return
+		}
+
+		isAuthor, err := service.CheckIfBidByUserExist(author, tenderID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if !isAuthor {
+			http.Error(w, "This user is not author", http.StatusBadRequest)
+			return
+		}
+
+		feedbacks, err := service.GetFeedbacks(author, limit, offset)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		response := formatFeedbacksToExport(feedbacks)
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(response); err != nil {
